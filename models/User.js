@@ -50,6 +50,16 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    status: {
+      type: String,
+      enum: ['active', 'inactive', 'pending'],
+      default: 'active',
+    },
+    referralCode: {
+      type: String,
+      default: null,
+      trim: true,
+    },
   },
   {
     timestamps: true,

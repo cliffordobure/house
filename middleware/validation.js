@@ -44,9 +44,14 @@ exports.registerValidation = [
     .isIn(['owner', 'tenant'])
     .withMessage('Role must be either owner or tenant'),
   body('houseCode')
-    .if(body('role').equals('tenant'))
-    .notEmpty()
-    .withMessage('House code is required for tenants'),
+    .optional()
+    .trim()
+    .isLength({ min: 3 })
+    .withMessage('House code must be at least 3 characters'),
+  body('landlordEmail')
+    .optional()
+    .isEmail()
+    .withMessage('Please provide a valid landlord email'),
 ];
 
 // Login validation rules

@@ -14,6 +14,7 @@ http://localhost:5000/api
 POST /api/auth/register
 Content-Type: application/json
 
+# Option 1: Tenant with house code
 {
   "name": "John Doe",
   "email": "john@example.com",
@@ -21,6 +22,25 @@ Content-Type: application/json
   "password": "password123",
   "role": "tenant",
   "houseCode": "SUN-A1-001"
+}
+
+# Option 2: Tenant with landlord referral
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "phone": "254723456789",
+  "password": "password123",
+  "role": "tenant",
+  "landlordEmail": "landlord@example.com"
+}
+
+# Option 3: Owner registration
+{
+  "name": "Property Owner",
+  "email": "owner@example.com",
+  "phone": "254734567890",
+  "password": "password123",
+  "role": "owner"
 }
 ```
 
@@ -274,6 +294,31 @@ Authorization: Bearer <admin_token>
 ### Delete User
 ```bash
 DELETE /api/admin/users/:userId
+Authorization: Bearer <admin_token>
+```
+
+### Get Landlord Referrals
+```bash
+GET /api/admin/landlord-referrals?status=pending&page=1&limit=20
+Authorization: Bearer <admin_token>
+```
+
+### Update Referral Status
+```bash
+PUT /api/admin/landlord-referrals/:id
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+
+{
+  "status": "contacted",
+  "landlordResponse": "Landlord showed interest",
+  "notes": "Follow up in 3 days"
+}
+```
+
+### Get Referral Statistics
+```bash
+GET /api/admin/referral-stats
 Authorization: Bearer <admin_token>
 ```
 

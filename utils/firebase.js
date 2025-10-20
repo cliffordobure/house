@@ -5,27 +5,31 @@ const initializeFirebase = () => {
   try {
     // Check if already initialized
     if (admin.apps.length === 0) {
-      // You can either use a service account JSON file or environment variables
-      if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
-        const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        });
-      } else {
+      // Check if Firebase credentials are provided
+      if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL) {
         // Use environment variables
         admin.initializeApp({
           credential: admin.credential.cert({
             projectId: process.env.FIREBASE_PROJECT_ID,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+            privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
             clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
           }),
         });
+        console.log('✅ Firebase Admin SDK initialized successfully');
+      } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+        // Use service account file
+        const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+        });
+        console.log('✅ Firebase Admin SDK initialized successfully');
+      } else {
+        console.log('⚠️  Firebase credentials not provided - push notifications will not be available');
       }
-      console.log('Firebase Admin SDK initialized successfully');
     }
   } catch (error) {
-    console.error('Error initializing Firebase Admin SDK:', error.message);
-    console.log('Push notifications will not be available');
+    console.error('❌ Error initializing Firebase Admin SDK:', error.message);
+    console.log('⚠️  Push notifications will not be available');
   }
 };
 

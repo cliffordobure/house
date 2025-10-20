@@ -6,6 +6,9 @@ const {
   getAllTransactions,
   getAllUsers,
   deleteUser,
+  getLandlordReferrals,
+  updateReferralStatus,
+  getReferralStats,
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -23,6 +26,15 @@ router.get('/users', protect, authorize('admin'), getAllUsers);
 
 // @route   DELETE /api/admin/users/:userId
 router.delete('/users/:userId', protect, authorize('admin'), deleteUser);
+
+// @route   GET /api/admin/landlord-referrals
+router.get('/landlord-referrals', protect, authorize('admin'), getLandlordReferrals);
+
+// @route   PUT /api/admin/landlord-referrals/:id
+router.put('/landlord-referrals/:id', protect, authorize('admin'), updateReferralStatus);
+
+// @route   GET /api/admin/referral-stats
+router.get('/referral-stats', protect, authorize('admin'), getReferralStats);
 
 module.exports = router;
 

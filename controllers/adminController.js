@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Property = require('../models/Property');
 const Payment = require('../models/Payment');
 const Complaint = require('../models/Complaint');
+const LandlordReferral = require('../models/LandlordReferral');
 const { sendNotificationToDevice } = require('../utils/firebase');
 
 // @desc    Approve owner
@@ -177,6 +178,143 @@ exports.deleteUser = async (req, res) => {
     });
   } catch (error) {
     console.error('Delete user error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error',
+    });
+  }
+};
+
+// @desc    Get landlord referrals
+// @route   GET /api/admin/landlord-referrals
+// @access  Private (Admin)
+exports.getLandlordReferrals = async (req, res) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    
+    let filter = {};
+    if (status) {
+      filter.status = status;
+    }
+
+    const referrals = await LandlordReferral.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit);
+
+    const total = await LandlordReferral.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      referrals,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total,
+      },
+    });
+  } catch (error) {
+    console.error('Get landlord referrals error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error',
+    });
+  }
+};
+
+// @desc    Update referral status
+// @route   PUT /api/admin/landlord-referrals/:id
+// @access  Private (Admin)
+exports.updateReferralStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, landlordResponse, notes } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status is required',
+      });
+    }
+
+    const validStatuses = ['pending', 'contacted', 'registered', 'declined'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Must be one of: ' + validStatuses.join(', '),
+      });
+    }
+
+    const updateData = {
+      status,
+      respondedAt: new Date(),
+    };
+
+    if (landlordResponse) updateData.landlordResponse = landlordResponse;
+    if (notes) updateData.notes = notes;
+
+    const referral = await LandlordReferral.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+
+    if (!referral) {
+      return res.status(404).json({
+        success: false,
+        message: 'Referral not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Referral status updated successfully',
+      referral,
+    });
+  } catch (error) {
+    console.error('Update referral status error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error',
+    });
+  }
+};
+
+// @desc    Get referral statistics
+// @route   GET /api/admin/referral-stats
+// @access  Private (Admin)
+exports.getReferralStats = async (req, res) => {
+  try {
+    const stats = await LandlordReferral.aggregate([
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const totalReferrals = await LandlordReferral.countDocuments();
+    const recentReferrals = await LandlordReferral.countDocuments({
+      createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }, // Last 7 days
+    });
+
+    const formattedStats = {
+      total: totalReferrals,
+      recent: recentReferrals,
+      byStatus: {},
+    };
+
+    stats.forEach(stat => {
+      formattedStats.byStatus[stat._id] = stat.count;
+    });
+
+    res.status(200).json({
+      success: true,
+      stats: formattedStats,
+    });
+  } catch (error) {
+    console.error('Get referral stats error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Server error',
