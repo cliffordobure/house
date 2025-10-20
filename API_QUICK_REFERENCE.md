@@ -109,6 +109,30 @@ Content-Type: application/json
 }
 ```
 
+### Bulk Create Properties (Owner)
+```bash
+POST /api/properties/bulk-create
+Authorization: Bearer <owner_token>
+Content-Type: application/json
+
+{
+  "propertyTemplate": {
+    "name": "Sunset Apartments",
+    "location": "Westlands, Nairobi",
+    "rentAmount": 25000,
+    "paybill": "4032786",
+    "accountNumber": "ACC001",
+    "description": "Modern apartment",
+    "propertyType": "apartment",
+    "numberOfRooms": 1,
+    "photos": []
+  },
+  "numberOfRooms": 90,
+  "roomPrefix": "Room",
+  "startingNumber": 1
+}
+```
+
 ---
 
 ## Payments

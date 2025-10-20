@@ -8,8 +8,9 @@ const {
   updateProperty,
   deleteProperty,
   linkToProperty,
+  bulkCreateProperties,
 } = require('../controllers/propertyController');
-const { propertyValidation, validate } = require('../middleware/validation');
+const { propertyValidation, bulkPropertyValidation, validate } = require('../middleware/validation');
 const { protect, authorize } = require('../middleware/auth');
 
 // @route   GET /api/properties
@@ -39,6 +40,9 @@ router.delete('/delete/:id', protect, authorize('owner'), deleteProperty);
 
 // @route   POST /api/properties/link
 router.post('/link', protect, authorize('tenant'), linkToProperty);
+
+// @route   POST /api/properties/bulk-create
+router.post('/bulk-create', protect, authorize('owner'), bulkPropertyValidation, validate, bulkCreateProperties);
 
 module.exports = router;
 

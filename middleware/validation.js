@@ -134,3 +134,51 @@ exports.complaintValidation = [
     .withMessage('Complaint description is required'),
 ];
 
+// Bulk property creation validation rules
+exports.bulkPropertyValidation = [
+  body('propertyTemplate')
+    .notEmpty()
+    .withMessage('Property template is required')
+    .isObject()
+    .withMessage('Property template must be an object'),
+  body('propertyTemplate.name')
+    .trim()
+    .notEmpty()
+    .withMessage('Property name is required'),
+  body('propertyTemplate.location')
+    .trim()
+    .notEmpty()
+    .withMessage('Location is required'),
+  body('propertyTemplate.rentAmount')
+    .notEmpty()
+    .withMessage('Rent amount is required')
+    .isNumeric()
+    .withMessage('Rent amount must be a number')
+    .isFloat({ min: 0 })
+    .withMessage('Rent amount must be positive'),
+  body('propertyTemplate.paybill')
+    .trim()
+    .notEmpty()
+    .withMessage('Paybill number is required'),
+  body('propertyTemplate.accountNumber')
+    .trim()
+    .notEmpty()
+    .withMessage('Account number is required'),
+  body('numberOfRooms')
+    .notEmpty()
+    .withMessage('Number of rooms is required')
+    .isInt({ min: 1, max: 200 })
+    .withMessage('Number of rooms must be between 1 and 200'),
+  body('roomPrefix')
+    .trim()
+    .notEmpty()
+    .withMessage('Room prefix is required')
+    .isLength({ min: 1, max: 20 })
+    .withMessage('Room prefix must be between 1 and 20 characters'),
+  body('startingNumber')
+    .notEmpty()
+    .withMessage('Starting number is required')
+    .isInt({ min: 1 })
+    .withMessage('Starting number must be a positive integer'),
+];
+

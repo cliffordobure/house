@@ -309,3 +309,155 @@ exports.linkToProperty = async (req, res) => {
   }
 };
 
+// @desc    Bulk create properties
+// @route   POST /api/properties/bulk-create
+// @access  Private (Owner)
+exports.bulkCreateProperties = async (req, res) => {
+  try {
+    const { 
+      propertyTemplate, 
+      numberOfRooms, 
+      roomPrefix, 
+      startingNumber 
+    } = req.body;
+
+    // Validate required fields
+    if (!propertyTemplate || !numberOfRooms || !roomPrefix || startingNumber === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'propertyTemplate, numberOfRooms, roomPrefix, and startingNumber are required',
+      });
+    }
+
+    // Validate numberOfRooms
+    if (numberOfRooms < 1 || numberOfRooms > 200) {
+      return res.status(400).json({
+        success: false,
+        message: 'numberOfRooms must be between 1 and 200',
+      });
+    }
+
+    // Validate propertyTemplate required fields
+    const requiredFields = ['name', 'location', 'rentAmount', 'paybill', 'accountNumber'];
+    for (const field of requiredFields) {
+      if (!propertyTemplate[field]) {
+        return res.status(400).json({
+          success: false,
+          message: `${field} is required in propertyTemplate`,
+        });
+      }
+    }
+
+    const properties = [];
+    const existingCodes = new Set();
+
+    // Generate properties
+    for (let i = 0; i < numberOfRooms; i++) {
+      const roomNumber = startingNumber + i;
+      const baseName = propertyTemplate.name.replace(/\s*-\s*Room\s*\d+$/, ''); // Remove existing room suffix
+      const propertyName = `${baseName} - ${roomPrefix} ${roomNumber}`;
+      
+      // Generate unique house code
+      let houseCode;
+      let attempts = 0;
+      do {
+        houseCode = generateHouseCode(baseName, roomNumber, attempts);
+        attempts++;
+      } while (existingCodes.has(houseCode) && attempts < 10);
+
+      if (attempts >= 10) {
+        return res.status(500).json({
+          success: false,
+          message: 'Unable to generate unique house codes. Please try with fewer rooms.',
+        });
+      }
+
+      existingCodes.add(houseCode);
+
+      const property = {
+        ownerId: req.user._id,
+        ownerName: req.user.name,
+        name: propertyName,
+        location: propertyTemplate.location,
+        rentAmount: propertyTemplate.rentAmount,
+        paybill: propertyTemplate.paybill,
+        accountNumber: propertyTemplate.accountNumber,
+        code: houseCode,
+        tenants: [],
+        photos: propertyTemplate.photos || [],
+        propertyType: propertyTemplate.propertyType || 'apartment',
+        numberOfRooms: propertyTemplate.numberOfRooms || 1,
+        description: `${propertyTemplate.description || 'Modern apartment'} - ${roomPrefix} ${roomNumber}`,
+      };
+
+      properties.push(property);
+    }
+
+    // Check for existing codes in database
+    const existingProperties = await Property.find({
+      code: { $in: Array.from(existingCodes) }
+    });
+
+    if (existingProperties.length > 0) {
+      const existingCodesList = existingProperties.map(p => p.code).join(', ');
+      return res.status(400).json({
+        success: false,
+        message: `Some house codes already exist: ${existingCodesList}`,
+      });
+    }
+
+    // Bulk insert to MongoDB
+    const createdProperties = await Property.insertMany(properties);
+    
+    res.status(201).json({
+      success: true,
+      message: `Successfully created ${createdProperties.length} properties`,
+      count: createdProperties.length,
+      properties: createdProperties.map(p => ({
+        _id: p._id,
+        name: p.name,
+        code: p.code,
+        location: p.location,
+        rentAmount: p.rentAmount,
+      })),
+    });
+  } catch (error) {
+    console.error('Bulk create properties error:', error);
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Some property codes already exist. Please try again.',
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create properties',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+    });
+  }
+};
+
+// Helper function to generate house code
+function generateHouseCode(baseName, roomNumber, attempt = 0) {
+  // Clean base name and create abbreviation
+  const cleanName = baseName
+    .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
+    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .trim()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase())
+    .join('')
+    .substring(0, 3); // Take first 3 characters
+
+  // Format room number with leading zeros
+  const formattedRoomNumber = roomNumber.toString().padStart(3, '0');
+  
+  // Add attempt suffix if needed for uniqueness
+  const suffix = attempt > 0 ? `-${attempt}` : '';
+  
+  return `${cleanName}-${formattedRoomNumber}${suffix}`.toUpperCase();
+}
+
