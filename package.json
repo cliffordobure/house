@@ -12,7 +12,8 @@
     "test-bulk": "node scripts/testBulkCreation.js",
     "test-mpesa": "node scripts/testMpesaSetup.js",
     "test-registration": "node scripts/testRegistrationFlow.js",
-    "test-phone": "node scripts/testPhoneFormats.js"
+    "test-phone": "node scripts/testPhoneFormats.js",
+    "test-new-flow": "node scripts/testNewTenantFlow.js"
   },
   "keywords": [
     "property",

@@ -26,6 +26,17 @@ A comprehensive property management system backend built with Node.js, Express, 
 - **Security**: Helmet, express-rate-limit, bcryptjs
 - **Validation**: express-validator
 
+## Phone Number Format Support
+
+The API supports multiple Kenyan phone number formats for user convenience:
+
+- **`254XXXXXXXXX`** (e.g., `254712345678`) - Standard international format
+- **`+254XXXXXXXXX`** (e.g., `+254712345678`) - International format with plus
+- **`07XXXXXXXX`** (e.g., `0712345678`) - Local format with leading zero
+- **`7XXXXXXXX`** (e.g., `712345678`) - Local format without leading zero
+
+All formats are automatically converted to `254XXXXXXXXX` for M-Pesa API calls, ensuring compatibility with Safaricom's requirements.
+
 ## Project Structure
 
 ```

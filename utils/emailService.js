@@ -57,6 +57,8 @@ class EmailService {
   generateLandlordInvitationTemplate(data) {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const registrationUrl = `${frontendUrl}/register?role=owner&referral=${encodeURIComponent(data.tenantEmail)}`;
+    const landlordName = data.landlordName || 'Landlord';
+    const propertyInfo = data.propertyAddress ? `<li><strong>Property Address:</strong> ${data.propertyAddress}</li>` : '';
 
     return `
       <!DOCTYPE html>
@@ -80,7 +82,7 @@ class EmailService {
             <h2 style="color: #333; margin-top: 0;">Your Tenant Invites You to Join PropertyHub</h2>
             
             <p style="font-size: 16px; line-height: 1.6; color: #555;">
-              Hello,
+              Hello ${landlordName},
             </p>
             
             <p style="font-size: 16px; line-height: 1.6; color: #555;">
@@ -94,6 +96,7 @@ class EmailService {
                 <li><strong>Name:</strong> ${data.tenantName}</li>
                 <li><strong>Email:</strong> ${data.tenantEmail}</li>
                 <li><strong>Phone:</strong> ${data.tenantPhone}</li>
+                ${propertyInfo}
               </ul>
             </div>
 

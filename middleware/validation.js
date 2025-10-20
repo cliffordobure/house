@@ -61,15 +61,6 @@ exports.registerValidation = [
     .withMessage('Role is required')
     .isIn(['owner', 'tenant'])
     .withMessage('Role must be either owner or tenant'),
-  body('houseCode')
-    .optional()
-    .trim()
-    .isLength({ min: 3 })
-    .withMessage('House code must be at least 3 characters'),
-  body('landlordEmail')
-    .optional()
-    .isEmail()
-    .withMessage('Please provide a valid landlord email'),
 ];
 
 // Login validation rules
@@ -83,6 +74,49 @@ exports.loginValidation = [
   body('password')
     .notEmpty()
     .withMessage('Password is required'),
+];
+
+// Landlord referral validation rules
+exports.landlordReferralValidation = [
+  body('landlordName')
+    .trim()
+    .notEmpty()
+    .withMessage('Landlord name is required')
+    .isLength({ min: 2 })
+    .withMessage('Landlord name must be at least 2 characters'),
+  body('landlordEmail')
+    .trim()
+    .notEmpty()
+    .withMessage('Landlord email is required')
+    .isEmail()
+    .withMessage('Please provide a valid landlord email'),
+  body('landlordPhone')
+    .optional()
+    .trim()
+    .custom((value) => {
+      if (!value) return true; // Optional field
+      
+      const cleanPhone = value.replace(/\s/g, '');
+      const patterns = [
+        /^254\d{9}$/,
+        /^\+254\d{9}$/,
+        /^07\d{8}$/,
+        /^7\d{8}$/
+      ];
+      
+      const isValid = patterns.some(pattern => pattern.test(cleanPhone));
+      
+      if (!isValid) {
+        throw new Error('Phone number must be in format: 254XXXXXXXXX, +254XXXXXXXXX, 07XXXXXXXX, or 7XXXXXXXX');
+      }
+      
+      return true;
+    }),
+  body('propertyAddress')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Property address must not exceed 500 characters'),
 ];
 
 // Property creation validation rules

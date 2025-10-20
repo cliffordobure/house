@@ -14,33 +14,31 @@ http://localhost:5000/api
 POST /api/auth/register
 Content-Type: application/json
 
-# Option 1: Tenant with house code
+# Simple registration for all users (no house code required)
 {
   "name": "John Doe",
   "email": "john@example.com",
   "phone": "254712345678",
   "password": "password123",
-  "role": "tenant",
-  "houseCode": "SUN-A1-001"
+  "role": "tenant"  # or "owner"
 }
 
-# Option 2: Tenant with landlord referral
-{
-  "name": "Jane Doe",
-  "email": "jane@example.com",
-  "phone": "254723456789",
-  "password": "password123",
-  "role": "tenant",
-  "landlordEmail": "landlord@example.com"
-}
+# After registration, tenants can:
+# 1. Link to property using house code: POST /api/properties/link
+# 2. Send landlord referral: POST /api/auth/send-landlord-referral
+```
 
-# Option 3: Owner registration
+### Send Landlord Referral (Tenant Only)
+```bash
+POST /api/auth/send-landlord-referral
+Authorization: Bearer <tenant_token>
+Content-Type: application/json
+
 {
-  "name": "Property Owner",
-  "email": "owner@example.com",
-  "phone": "254734567890",
-  "password": "password123",
-  "role": "owner"
+  "landlordName": "John Landlord",
+  "landlordEmail": "landlord@example.com",
+  "landlordPhone": "0712345678",  # Optional
+  "propertyAddress": "123 Main Street, Nairobi"  # Optional
 }
 ```
 
@@ -456,9 +454,13 @@ curl -X POST http://localhost:5000/api/properties/create \
 
 ## Phone Number Format
 
-Always use Kenyan format: `254XXXXXXXXX`
-- Remove leading `0` or `+`
-- Example: `0712345678` → `254712345678`
+Supports multiple Kenyan phone number formats:
+- `254XXXXXXXXX` (e.g., `254712345678`)
+- `+254XXXXXXXXX` (e.g., `+254712345678`)
+- `07XXXXXXXX` (e.g., `0712345678`)
+- `7XXXXXXXX` (e.g., `712345678`)
+
+All formats are automatically converted to `254XXXXXXXXX` for M-Pesa API calls.
 
 ---
 

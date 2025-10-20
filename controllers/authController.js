@@ -9,7 +9,7 @@ const emailService = require('../utils/emailService');
 // @access  Public
 exports.register = async (req, res) => {
   try {
-    const { name, email, phone, password, role, houseCode, landlordEmail } = req.body;
+    const { name, email, phone, password, role } = req.body;
 
     // Validate required fields
     if (!name || !email || !phone || !password || !role) {
@@ -31,86 +31,17 @@ exports.register = async (req, res) => {
       });
     }
 
-    let linkedProperty = null;
-    let referralCreated = false;
-
-    // Handle tenant-specific logic
-    if (role === 'tenant') {
-      // Validate that either houseCode OR landlordEmail is provided
-      if (!houseCode && !landlordEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Tenants must provide either house code or landlord email',
-        });
-      }
-      
-      if (houseCode && landlordEmail) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please provide either house code OR landlord email, not both',
-        });
-      }
-
-      // Handle house code registration
-      if (houseCode) {
-        const property = await Property.findOne({ code: houseCode.toUpperCase() });
-        
-        if (!property) {
-          return res.status(404).json({
-            success: false,
-            message: 'Invalid house code',
-          });
-        }
-
-        // Check if property has available space (optional - you can add maxTenants field to Property model)
-        // if (property.tenants && property.tenants.length >= property.maxTenants) {
-        //   return res.status(400).json({
-        //     success: false,
-        //     message: 'This property is full',
-        //   });
-        // }
-
-        linkedProperty = property._id;
-      }
-
-      // Handle landlord referral
-      if (landlordEmail) {
-        try {
-          await createLandlordReferral({
-            tenantEmail: email,
-            tenantName: name,
-            tenantPhone: phone,
-            landlordEmail: landlordEmail,
-          });
-          referralCreated = true;
-        } catch (referralError) {
-          console.error('Error creating landlord referral:', referralError);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to create landlord referral',
-          });
-        }
-      }
-    }
-
-    // Create user
+    // Create user (no property linking during registration)
     const user = await User.create({
       name,
       email,
       phone,
       password,
       role,
-      linkedProperty,
-      isApproved: role === 'tenant' ? false : true, // Tenants need approval
+      linkedProperty: null, // Property will be linked later via setup
+      isApproved: role === 'tenant' ? false : true, // Tenants need approval after linking
       status: 'active',
     });
-
-    // If tenant with house code, add to property's tenant list
-    if (role === 'tenant' && linkedProperty) {
-      await Property.findByIdAndUpdate(linkedProperty, {
-        $addToSet: { tenants: user._id },
-      });
-    }
 
     // Generate token
     const token = generateToken(user._id);
@@ -127,15 +58,9 @@ exports.register = async (req, res) => {
       // Don't fail registration if email fails
     }
 
-    // Prepare response message
-    let message = 'Registration successful';
-    if (referralCreated) {
-      message += '. Landlord invitation sent successfully';
-    }
-
     res.status(201).json({
       success: true,
-      message,
+      message: 'Registration successful',
       token,
       user: {
         _id: user._id,
@@ -148,7 +73,6 @@ exports.register = async (req, res) => {
         status: user.status,
         createdAt: user.createdAt,
       },
-      referralCreated,
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -159,41 +83,84 @@ exports.register = async (req, res) => {
   }
 };
 
-// Helper function to create landlord referral
-const createLandlordReferral = async (referralData) => {
+// @desc    Send landlord referral
+// @route   POST /api/auth/send-landlord-referral
+// @access  Private (Tenant)
+exports.sendLandlordReferral = async (req, res) => {
   try {
-    // Check if referral already exists
+    const { landlordName, landlordEmail, landlordPhone, propertyAddress } = req.body;
+
+    // Validate required fields
+    if (!landlordName || !landlordEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Landlord name and email are required',
+      });
+    }
+
+    // Check if user is a tenant
+    if (req.user.role !== 'tenant') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only tenants can send landlord referrals',
+      });
+    }
+
+    // Check if referral already exists for this tenant-landlord combination
     const existingReferral = await LandlordReferral.findOne({
-      tenantEmail: referralData.tenantEmail,
-      landlordEmail: referralData.landlordEmail,
+      tenantEmail: req.user.email,
+      landlordEmail: landlordEmail,
     });
 
     if (existingReferral) {
-      throw new Error('Referral already exists for this landlord');
+      return res.status(400).json({
+        success: false,
+        message: 'You have already sent a referral to this landlord',
+      });
     }
 
     // Create referral record
     const referral = await LandlordReferral.create({
-      tenantEmail: referralData.tenantEmail,
-      tenantName: referralData.tenantName,
-      tenantPhone: referralData.tenantPhone,
-      landlordEmail: referralData.landlordEmail,
+      tenantEmail: req.user.email,
+      tenantName: req.user.name,
+      tenantPhone: req.user.phone,
+      landlordEmail: landlordEmail,
       status: 'pending',
+      notes: propertyAddress ? `Property address: ${propertyAddress}` : null,
     });
 
     // Send email to landlord
-    await emailService.sendLandlordInvitationEmail({
-      landlordEmail: referralData.landlordEmail,
-      tenantName: referralData.tenantName,
-      tenantEmail: referralData.tenantEmail,
-      tenantPhone: referralData.tenantPhone,
-    });
+    try {
+      await emailService.sendLandlordInvitationEmail({
+        landlordEmail: landlordEmail,
+        landlordName: landlordName,
+        tenantName: req.user.name,
+        tenantEmail: req.user.email,
+        tenantPhone: req.user.phone,
+        propertyAddress: propertyAddress,
+      });
+      console.log(`✅ Landlord invitation sent to ${landlordEmail}`);
+    } catch (emailError) {
+      console.error('Error sending landlord invitation email:', emailError);
+      // Don't fail the request if email fails - referral is still created
+    }
 
-    console.log(`Landlord referral created for ${referralData.landlordEmail}`);
-    return referral;
+    res.status(201).json({
+      success: true,
+      message: 'Landlord referral sent successfully',
+      referral: {
+        _id: referral._id,
+        landlordEmail: referral.landlordEmail,
+        status: referral.status,
+        createdAt: referral.createdAt,
+      },
+    });
   } catch (error) {
-    console.error('Error creating landlord referral:', error);
-    throw error;
+    console.error('Send landlord referral error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to send landlord referral',
+    });
   }
 };
 
