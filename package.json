@@ -9,7 +9,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "create-admin": "node scripts/createAdmin.js",
     "seed": "node scripts/seedData.js",
-    "test-bulk": "node scripts/testBulkCreation.js"
+    "test-bulk": "node scripts/testBulkCreation.js",
+    "test-mpesa": "node scripts/testMpesaSetup.js"
   },
   "keywords": [
     "property",

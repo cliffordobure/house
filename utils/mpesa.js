@@ -13,6 +13,13 @@ class MpesaService {
     this.baseUrl = this.environment === 'production'
       ? 'https://api.safaricom.co.ke'
       : 'https://sandbox.safaricom.co.ke';
+
+    // Use sandbox test credentials if passkey is not provided
+    if (this.environment === 'sandbox' && !this.passkey) {
+      console.log('⚠️  Using M-Pesa sandbox test credentials');
+      this.businessShortCode = '174379'; // Sandbox test shortcode
+      this.passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'; // Sandbox test passkey
+    }
   }
 
   // Generate access token
