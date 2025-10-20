@@ -31,8 +31,26 @@ exports.registerValidation = [
     .trim()
     .notEmpty()
     .withMessage('Phone number is required')
-    .matches(/^254\d{9}$/)
-    .withMessage('Phone number must be in format 254XXXXXXXXX'),
+    .custom((value) => {
+      // Remove any spaces or special characters except + at the beginning
+      const cleanPhone = value.replace(/\s/g, '');
+      
+      // Check for different phone number formats
+      const patterns = [
+        /^254\d{9}$/,        // 254XXXXXXXXX
+        /^\+254\d{9}$/,      // +254XXXXXXXXX
+        /^07\d{8}$/,         // 07XXXXXXXX
+        /^7\d{8}$/           // 7XXXXXXXX
+      ];
+      
+      const isValid = patterns.some(pattern => pattern.test(cleanPhone));
+      
+      if (!isValid) {
+        throw new Error('Phone number must be in format: 254XXXXXXXXX, +254XXXXXXXXX, 07XXXXXXXX, or 7XXXXXXXX');
+      }
+      
+      return true;
+    }),
   body('password')
     .notEmpty()
     .withMessage('Password is required')
@@ -118,8 +136,26 @@ exports.paymentValidation = [
     .trim()
     .notEmpty()
     .withMessage('Phone number is required')
-    .matches(/^254\d{9}$/)
-    .withMessage('Phone number must be in format 254XXXXXXXXX'),
+    .custom((value) => {
+      // Remove any spaces or special characters except + at the beginning
+      const cleanPhone = value.replace(/\s/g, '');
+      
+      // Check for different phone number formats
+      const patterns = [
+        /^254\d{9}$/,        // 254XXXXXXXXX
+        /^\+254\d{9}$/,      // +254XXXXXXXXX
+        /^07\d{8}$/,         // 07XXXXXXXX
+        /^7\d{8}$/           // 7XXXXXXXX
+      ];
+      
+      const isValid = patterns.some(pattern => pattern.test(cleanPhone));
+      
+      if (!isValid) {
+        throw new Error('Phone number must be in format: 254XXXXXXXXX, +254XXXXXXXXX, 07XXXXXXXX, or 7XXXXXXXX');
+      }
+      
+      return true;
+    }),
 ];
 
 // Complaint creation validation rules

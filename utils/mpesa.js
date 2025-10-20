@@ -126,19 +126,32 @@ class MpesaService {
   formatPhoneNumber(phoneNumber) {
     let formatted = phoneNumber.toString().trim();
     
+    // Remove any spaces
+    formatted = formatted.replace(/\s/g, '');
+    
     // Remove + if present
     if (formatted.startsWith('+')) {
       formatted = formatted.substring(1);
     }
     
-    // Replace leading 0 with 254
-    if (formatted.startsWith('0')) {
+    // Handle different formats
+    if (formatted.startsWith('07')) {
+      // 07XXXXXXXX -> 2547XXXXXXXX
       formatted = '254' + formatted.substring(1);
+    } else if (formatted.startsWith('7')) {
+      // 7XXXXXXXX -> 2547XXXXXXXX
+      formatted = '254' + formatted;
+    } else if (formatted.startsWith('254')) {
+      // Already in correct format
+      formatted = formatted;
+    } else {
+      // Default: add 254 prefix
+      formatted = '254' + formatted;
     }
     
-    // Add 254 if not present
-    if (!formatted.startsWith('254')) {
-      formatted = '254' + formatted;
+    // Validate final format
+    if (!/^254\d{9}$/.test(formatted)) {
+      throw new Error(`Invalid phone number format: ${phoneNumber}. Expected formats: 254XXXXXXXXX, +254XXXXXXXXX, 07XXXXXXXX, or 7XXXXXXXX`);
     }
     
     return formatted;
