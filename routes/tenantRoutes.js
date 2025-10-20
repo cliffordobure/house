@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   getTenantsByProperty,
   getTenantDetails,
+  getUserProperty,
 } = require('../controllers/tenantController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -13,6 +14,9 @@ router.get(
   authorize('owner', 'admin'),
   getTenantsByProperty
 );
+
+// @route   GET /api/tenants/user-property/:userId
+router.get('/user-property/:userId', protect, getUserProperty);
 
 // @route   GET /api/tenants/:id
 router.get('/:id', protect, getTenantDetails);

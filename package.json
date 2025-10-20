@@ -13,7 +13,8 @@
     "test-mpesa": "node scripts/testMpesaSetup.js",
     "test-registration": "node scripts/testRegistrationFlow.js",
     "test-phone": "node scripts/testPhoneFormats.js",
-    "test-new-flow": "node scripts/testNewTenantFlow.js"
+    "test-new-flow": "node scripts/testNewTenantFlow.js",
+    "test-user-property": "node scripts/testUserProperty.js"
   },
   "keywords": [
     "property",

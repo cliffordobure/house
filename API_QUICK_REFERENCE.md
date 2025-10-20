@@ -249,6 +249,15 @@ Authorization: Bearer <token>
 
 ## Tenants
 
+### Get User's Property (Tenant)
+```bash
+GET /api/tenants/user-property/:userId
+Authorization: Bearer <tenant_token>
+
+# Returns the property linked to the user/tenant
+# Essential for Flutter app to get correct property ID
+```
+
 ### Get Tenants by Property (Owner)
 ```bash
 GET /api/tenants/property/:propertyId
