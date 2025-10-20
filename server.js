@@ -6,7 +6,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
-const { initializeFirebase } = require('./utils/firebase'); 
+const { initializeFirebase } = require('./utils/firebase');  
 
 // Load environment variables
 dotenv.config();
