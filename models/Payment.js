@@ -60,6 +60,49 @@ const paymentSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // Disbursement fields (B2B to property owner)
+    disbursementStatus: {
+      type: String,
+      enum: ['pending', 'processing', 'completed', 'failed', 'not_required'],
+      default: 'pending',
+    },
+    disbursementAmount: {
+      type: Number,
+      default: null,
+    },
+    disbursementTransactionId: {
+      type: String,
+      default: null,
+    },
+    disbursementConversationId: {
+      type: String,
+      default: null,
+    },
+    disbursementOriginatorConversationId: {
+      type: String,
+      default: null,
+    },
+    disbursementDate: {
+      type: Date,
+      default: null,
+    },
+    disbursementFailureReason: {
+      type: String,
+      default: null,
+    },
+    platformFee: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    ownerPaybill: {
+      type: String,
+      default: null,
+    },
+    ownerAccountNumber: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -70,6 +113,9 @@ const paymentSchema = new mongoose.Schema(
 paymentSchema.index({ tenantId: 1, date: -1 });
 paymentSchema.index({ propertyId: 1, date: -1 });
 paymentSchema.index({ transactionId: 1 });
+paymentSchema.index({ disbursementStatus: 1 });
+paymentSchema.index({ checkoutRequestId: 1 });
+paymentSchema.index({ disbursementConversationId: 1 });
 
 module.exports = mongoose.model('Payment', paymentSchema);
 

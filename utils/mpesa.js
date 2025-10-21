@@ -8,6 +8,10 @@ class MpesaService {
     this.businessShortCode = process.env.MPESA_BUSINESS_SHORT_CODE;
     this.passkey = process.env.MPESA_PASSKEY;
     this.callbackUrl = process.env.MPESA_CALLBACK_URL;
+    this.b2bCallbackUrl = process.env.MPESA_B2B_CALLBACK_URL || process.env.MPESA_CALLBACK_URL;
+    this.timeoutUrl = process.env.MPESA_TIMEOUT_URL || process.env.MPESA_CALLBACK_URL;
+    this.initiatorName = process.env.MPESA_INITIATOR_NAME;
+    this.securityCredential = process.env.MPESA_SECURITY_CREDENTIAL;
     this.environment = process.env.MPESA_ENVIRONMENT || 'sandbox';
     
     this.baseUrl = this.environment === 'production'
@@ -155,6 +159,120 @@ class MpesaService {
     }
     
     return formatted;
+  }
+
+  // Initiate B2B Payment (Business to Business - Pay to another Paybill)
+  async initiateB2B(receiverPartyPublicName, amount, accountReference, remarks) {
+    try {
+      const accessToken = await this.getAccessToken();
+
+      // Validate required credentials
+      if (!this.initiatorName || !this.securityCredential) {
+        throw new Error('B2B requires MPESA_INITIATOR_NAME and MPESA_SECURITY_CREDENTIAL environment variables');
+      }
+
+      const b2bData = {
+        Initiator: this.initiatorName,
+        SecurityCredential: this.securityCredential,
+        CommandID: 'BusinessPayBill',
+        SenderIdentifierType: '4', // 4 = Paybill
+        RecieverIdentifierType: '4', // 4 = Paybill
+        Amount: Math.floor(amount),
+        PartyA: this.businessShortCode, // Your paybill
+        PartyB: receiverPartyPublicName, // Owner's paybill
+        AccountReference: accountReference, // Owner's account number
+        Remarks: remarks || 'Rent disbursement',
+        QueueTimeOutURL: this.timeoutUrl,
+        ResultURL: this.b2bCallbackUrl,
+      };
+
+      console.log('Initiating B2B payment:', {
+        from: b2bData.PartyA,
+        to: b2bData.PartyB,
+        amount: b2bData.Amount,
+        account: b2bData.AccountReference,
+      });
+
+      const response = await axios.post(
+        `${this.baseUrl}/mpesa/b2b/v1/paymentrequest`,
+        b2bData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      console.log('B2B Response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error initiating B2B payment:', error.response?.data || error.message);
+      throw new Error(error.response?.data?.errorMessage || 'Failed to initiate B2B payment');
+    }
+  }
+
+  // Register C2B URLs (Optional - for production setup)
+  async registerUrls(shortCode, confirmationUrl, validationUrl) {
+    try {
+      const accessToken = await this.getAccessToken();
+
+      const registerData = {
+        ShortCode: shortCode || this.businessShortCode,
+        ResponseType: 'Completed', // or 'Cancelled'
+        ConfirmationURL: confirmationUrl || this.callbackUrl,
+        ValidationURL: validationUrl || this.callbackUrl,
+      };
+
+      const response = await axios.post(
+        `${this.baseUrl}/mpesa/c2b/v1/registerurl`,
+        registerData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error('Error registering URLs:', error.response?.data || error.message);
+      throw new Error('Failed to register URLs');
+    }
+  }
+
+  // Query B2B transaction status
+  async queryB2BStatus(transactionId) {
+    try {
+      const accessToken = await this.getAccessToken();
+
+      const queryData = {
+        Initiator: this.initiatorName,
+        SecurityCredential: this.securityCredential,
+        CommandID: 'TransactionStatusQuery',
+        TransactionID: transactionId,
+        PartyA: this.businessShortCode,
+        IdentifierType: '4', // 4 = Paybill
+        ResultURL: this.b2bCallbackUrl,
+        QueueTimeOutURL: this.timeoutUrl,
+        Remarks: 'Status query',
+        Occasion: 'Status check',
+      };
+
+      const response = await axios.post(
+        `${this.baseUrl}/mpesa/transactionstatus/v1/query`,
+        queryData,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error) {
+      console.error('Error querying B2B status:', error.response?.data || error.message);
+      throw new Error('Failed to query B2B transaction status');
+    }
   }
 }
 
