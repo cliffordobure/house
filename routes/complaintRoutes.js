@@ -7,6 +7,7 @@ const {
   resolveComplaint,
   getComplaintsByProperty,
   getComplaintsByTenant,
+  getComplaintsByTenantAndProperty,
 } = require('../controllers/complaintController');
 const { complaintValidation, validate } = require('../middleware/validation');
 const { protect, authorize } = require('../middleware/auth');
@@ -40,6 +41,9 @@ router.get(
 
 // @route   GET /api/complaints/tenant/:tenantId
 router.get('/tenant/:tenantId', protect, getComplaintsByTenant);
+
+// @route   GET /api/complaints/tenant/:tenantId/property/:propertyId
+router.get('/tenant/:tenantId/property/:propertyId', protect, getComplaintsByTenantAndProperty);
 
 module.exports = router;
 

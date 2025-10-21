@@ -262,12 +262,13 @@ exports.getComplaintsByProperty = async (req, res) => {
   }
 };
 
-// @desc    Get complaints by tenant
-// @route   GET /api/complaints/tenant/:tenantId
+// @desc    Get complaints by tenant (with optional property filter)
+// @route   GET /api/complaints/tenant/:tenantId?propertyId=propertyId
 // @access  Private
 exports.getComplaintsByTenant = async (req, res) => {
   try {
     const tenantId = req.params.tenantId;
+    const propertyId = req.query.propertyId;
 
     // Check authorization
     if (
@@ -280,16 +281,116 @@ exports.getComplaintsByTenant = async (req, res) => {
       });
     }
 
-    const complaints = await Complaint.find({ tenantId }).sort({
-      createdAt: -1,
-    });
+    // Build query object
+    let query = { tenantId };
+
+    // Add property filter if provided
+    if (propertyId) {
+      query.propertyId = propertyId;
+      
+      // Additional security: Verify tenant is linked to this property
+      if (req.user.role === 'tenant') {
+        const user = await User.findById(req.user._id);
+        if (!user.linkedProperty || user.linkedProperty.toString() !== propertyId) {
+          return res.status(403).json({
+            success: false,
+            message: 'You are not linked to this property',
+          });
+        }
+      }
+    }
+
+    const complaints = await Complaint.find(query)
+      .populate('propertyId', 'name location')
+      .populate('tenantId', 'name email')
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
       complaints,
+      filters: {
+        tenantId,
+        propertyId: propertyId || null,
+        totalCount: complaints.length,
+      },
     });
   } catch (error) {
     console.error('Get complaints by tenant error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error',
+    });
+  }
+};
+
+// @desc    Get complaints by tenant and property (dedicated dual filtering endpoint)
+// @route   GET /api/complaints/tenant/:tenantId/property/:propertyId
+// @access  Private
+exports.getComplaintsByTenantAndProperty = async (req, res) => {
+  try {
+    const { tenantId, propertyId } = req.params;
+
+    // Check authorization
+    if (
+      req.user.role === 'tenant' &&
+      tenantId !== req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to access these complaints',
+      });
+    }
+
+    // Additional security: Verify tenant is linked to this property
+    if (req.user.role === 'tenant') {
+      const user = await User.findById(req.user._id);
+      if (!user.linkedProperty || user.linkedProperty.toString() !== propertyId) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not linked to this property',
+        });
+      }
+    }
+
+    // Verify property exists
+    const property = await Property.findById(propertyId);
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found',
+      });
+    }
+
+    // Verify tenant exists
+    const tenant = await User.findById(tenantId);
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tenant not found',
+      });
+    }
+
+    const complaints = await Complaint.find({ 
+      tenantId, 
+      propertyId 
+    })
+      .populate('propertyId', 'name location')
+      .populate('tenantId', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      complaints,
+      filters: {
+        tenantId,
+        propertyId,
+        tenantName: tenant.name,
+        propertyName: property.name,
+        totalCount: complaints.length,
+      },
+    });
+  } catch (error) {
+    console.error('Get complaints by tenant and property error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Server error',

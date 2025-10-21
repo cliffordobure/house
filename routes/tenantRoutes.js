@@ -17,17 +17,17 @@ router.get(
   getTenantsByProperty
 );
 
-// @route   GET /api/tenants/user-property/:userId
-router.get('/user-property/:userId', protect, getUserProperty);
-
-// @route   GET /api/tenants/:id
-router.get('/:id', protect, getTenantDetails);
-
 // @route   POST /api/tenants/unlink
 router.post('/unlink', protect, authorize('tenant'), unlinkProperty);
 
 // @route   POST /api/tenants/kick-out
 router.post('/kick-out', protect, authorize('owner', 'admin'), kickOutTenant);
+
+// @route   GET /api/tenants/user-property/:userId
+router.get('/user-property/:userId', protect, getUserProperty);
+
+// @route   GET /api/tenants/:id
+router.get('/:id', protect, getTenantDetails);
 
 module.exports = router;
 
