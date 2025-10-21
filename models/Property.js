@@ -69,6 +69,32 @@ const propertySchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
+    tenantRemovalHistory: [
+      {
+        tenantId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        tenantName: {
+          type: String,
+        },
+        action: {
+          type: String,
+          enum: ['unlink', 'kick_out'],
+        },
+        reason: {
+          type: String,
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+        initiatedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+      },
+    ],
   },
   {
     timestamps: true,

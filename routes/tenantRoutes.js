@@ -4,6 +4,8 @@ const {
   getTenantsByProperty,
   getTenantDetails,
   getUserProperty,
+  unlinkProperty,
+  kickOutTenant,
 } = require('../controllers/tenantController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -20,6 +22,12 @@ router.get('/user-property/:userId', protect, getUserProperty);
 
 // @route   GET /api/tenants/:id
 router.get('/:id', protect, getTenantDetails);
+
+// @route   POST /api/tenants/unlink
+router.post('/unlink', protect, authorize('tenant'), unlinkProperty);
+
+// @route   POST /api/tenants/kick-out
+router.post('/kick-out', protect, authorize('owner', 'admin'), kickOutTenant);
 
 module.exports = router;
 

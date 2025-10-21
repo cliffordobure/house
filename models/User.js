@@ -60,6 +60,32 @@ const userSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
+    unlinkHistory: [
+      {
+        propertyId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Property',
+        },
+        propertyName: {
+          type: String,
+        },
+        action: {
+          type: String,
+          enum: ['unlink', 'kick_out'],
+        },
+        reason: {
+          type: String,
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+        initiatedBy: {
+          type: String,
+          enum: ['tenant', 'owner'],
+        },
+      },
+    ],
   },
   {
     timestamps: true,

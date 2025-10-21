@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Property = require('../models/Property');
 const Payment = require('../models/Payment');
 const mongoose = require('mongoose');
+const { sendNotificationToDevice } = require('../utils/firebase');
 
 // @desc    Get tenants by property
 // @route   GET /api/tenants/property/:propertyId
@@ -236,6 +237,268 @@ exports.getTenantDetails = async (req, res) => {
     });
   } catch (error) {
     console.error('Get tenant details error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error',
+    });
+  }
+};
+
+// @desc    Tenant unlink from property
+// @route   POST /api/tenants/unlink
+// @access  Private (Tenant)
+exports.unlinkProperty = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const userId = req.user._id;
+
+    // Get user and verify they're a tenant
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    if (user.role !== 'tenant') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only tenants can unlink from properties',
+        error: 'INVALID_ROLE',
+      });
+    }
+
+    // Check if user is linked to a property
+    if (!user.linkedProperty) {
+      return res.status(400).json({
+        success: false,
+        message: 'User is not linked to any property',
+        error: 'NO_LINKED_PROPERTY',
+      });
+    }
+
+    const propertyId = user.linkedProperty;
+
+    // Get property details
+    const property = await Property.findById(propertyId).populate('ownerId');
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found',
+      });
+    }
+
+    // Remove tenant from property's tenant list
+    property.tenants = property.tenants.filter(
+      (tenantId) => tenantId.toString() !== userId.toString()
+    );
+
+    // Add to property's tenant removal history
+    property.tenantRemovalHistory.push({
+      tenantId: userId,
+      tenantName: user.name,
+      action: 'unlink',
+      reason: reason || 'No reason provided',
+      timestamp: new Date(),
+      initiatedBy: userId,
+    });
+
+    await property.save();
+
+    // Clear user's linked property
+    user.linkedProperty = null;
+
+    // Add to user's unlink history
+    user.unlinkHistory.push({
+      propertyId: propertyId,
+      propertyName: property.name,
+      action: 'unlink',
+      reason: reason || 'No reason provided',
+      timestamp: new Date(),
+      initiatedBy: 'tenant',
+    });
+
+    await user.save();
+
+    // Send notification to property owner
+    if (property.ownerId && property.ownerId.fcmToken) {
+      try {
+        await sendNotificationToDevice(
+          property.ownerId.fcmToken,
+          'Tenant Unlinked',
+          `${user.name} has unlinked from ${property.name}. Reason: ${reason || 'No reason provided'}`,
+          {
+            type: 'tenant_unlinked',
+            tenantId: userId.toString(),
+            propertyId: propertyId.toString(),
+            tenantName: user.name,
+            propertyName: property.name,
+          }
+        );
+      } catch (notificationError) {
+        console.error('Failed to send notification:', notificationError);
+        // Don't fail the request if notification fails
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Successfully unlinked from property',
+      data: {
+        userId: userId.toString(),
+        propertyId: propertyId.toString(),
+        propertyName: property.name,
+        unlinkedAt: new Date(),
+        reason: reason || 'No reason provided',
+      },
+    });
+  } catch (error) {
+    console.error('Unlink property error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error',
+    });
+  }
+};
+
+// @desc    Owner kick out tenant from property
+// @route   POST /api/tenants/kick-out
+// @access  Private (Owner)
+exports.kickOutTenant = async (req, res) => {
+  try {
+    const { tenantId, propertyId, reason } = req.body;
+    const ownerId = req.user._id;
+
+    // Validate required fields
+    if (!tenantId || !propertyId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tenant ID and Property ID are required',
+      });
+    }
+
+    // Validate reason
+    if (!reason || reason.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reason for removal is required',
+      });
+    }
+
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(tenantId) || !mongoose.Types.ObjectId.isValid(propertyId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid tenant ID or property ID format',
+      });
+    }
+
+    // Verify owner owns the property
+    const property = await Property.findOne({
+      _id: propertyId,
+      ownerId: ownerId,
+    });
+
+    if (!property) {
+      return res.status(403).json({
+        success: false,
+        message: 'Property not found or you do not own this property',
+        error: 'UNAUTHORIZED',
+      });
+    }
+
+    // Verify tenant exists in property
+    const tenantExists = property.tenants.some(
+      (id) => id.toString() === tenantId.toString()
+    );
+
+    if (!tenantExists) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tenant not found in this property',
+        error: 'TENANT_NOT_FOUND',
+      });
+    }
+
+    // Get tenant info
+    const tenant = await User.findById(tenantId);
+
+    if (!tenant) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tenant not found',
+      });
+    }
+
+    // Remove tenant from property's tenant list
+    property.tenants = property.tenants.filter(
+      (id) => id.toString() !== tenantId.toString()
+    );
+
+    // Add to property's tenant removal history
+    property.tenantRemovalHistory.push({
+      tenantId: tenantId,
+      tenantName: tenant.name,
+      action: 'kick_out',
+      reason: reason,
+      timestamp: new Date(),
+      initiatedBy: ownerId,
+    });
+
+    await property.save();
+
+    // Clear tenant's linked property
+    tenant.linkedProperty = null;
+
+    // Add to tenant's unlink history
+    tenant.unlinkHistory.push({
+      propertyId: propertyId,
+      propertyName: property.name,
+      action: 'kick_out',
+      reason: reason,
+      timestamp: new Date(),
+      initiatedBy: 'owner',
+    });
+
+    await tenant.save();
+
+    // Send notification to the removed tenant
+    if (tenant.fcmToken) {
+      try {
+        await sendNotificationToDevice(
+          tenant.fcmToken,
+          'Removed from Property',
+          `You have been removed from ${property.name} by the property owner. Reason: ${reason}`,
+          {
+            type: 'tenant_kicked_out',
+            propertyId: propertyId.toString(),
+            propertyName: property.name,
+            reason: reason,
+          }
+        );
+      } catch (notificationError) {
+        console.error('Failed to send notification:', notificationError);
+        // Don't fail the request if notification fails
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Successfully removed tenant from property',
+      data: {
+        tenantId: tenantId.toString(),
+        propertyId: propertyId.toString(),
+        tenantName: tenant.name,
+        propertyName: property.name,
+        removedAt: new Date(),
+        reason: reason,
+      },
+    });
+  } catch (error) {
+    console.error('Kick out tenant error:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Server error',
